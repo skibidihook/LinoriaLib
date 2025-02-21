@@ -23,6 +23,9 @@ ScreenGui.Parent = CoreGui;
 local Toggles = {};
 local Options = {};
 
+--getgenv().Toggles = Toggles;
+--getgenv().Options = Options;
+
 local Library = {
 	Registry = {};
 	RegistryMap = {};
@@ -54,6 +57,10 @@ local Library = {
 	Signals = {};
 	ScreenGui = ScreenGui;
 };
+
+Library.Toggles = Toggles
+Library.Options = Options
+
 
 local RainbowStep = 0
 local Hue = 0
