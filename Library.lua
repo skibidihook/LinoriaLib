@@ -1,6 +1,5 @@
 local InputService = game:GetService('UserInputService');
 local TextService = game:GetService('TextService');
---local CoreGui = gethui()
 local CoreGui = game:GetService('CoreGui');
 local Teams = game:GetService('Teams');
 local Players = game:GetService('Players');
@@ -21,8 +20,8 @@ ScreenGui.Parent = CoreGui;
 local Toggles = {};
 local Options = {};
 
-_G.Toggles = Toggles;
-_G.Options = Options;
+getgenv().Toggles = Toggles;
+getgenv().Options = Options;
 
 local Library = {
 	Registry = {};
@@ -55,7 +54,6 @@ local Library = {
 	Signals = {};
 	ScreenGui = ScreenGui;
 };
-
 
 local RainbowStep = 0
 local Hue = 0
