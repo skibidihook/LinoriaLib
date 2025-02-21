@@ -14,14 +14,14 @@ local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 local ScreenGui = Instance.new('ScreenGui');
 ProtectGui(ScreenGui);
 
+local randomName = "UI_" .. tostring(math.random(1000, 9999))
+ScreenGui.Name = randomName
+
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-ScreenGui.Parent = gethui();
+ScreenGui.Parent = CoreGui;
 
 local Toggles = {};
 local Options = {};
-
-getgenv().Toggles = Toggles;
-getgenv().Options = Options;
 
 local Library = {
 	Registry = {};
