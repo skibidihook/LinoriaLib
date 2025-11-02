@@ -23,6 +23,7 @@ local Options = {};
 
 getgenv().Toggles = Toggles;
 getgenv().Options = Options;
+getgenv().SilentLoad = true
 
 local Library = {
 	Registry = {};
@@ -3342,8 +3343,12 @@ do
 end;
 
 function Library:SetWatermarkVisibility(Bool)
-	Library.Watermark.Visible = Bool;
-end;
+    if SilentLoad then
+        Library.Watermark.Visible = false
+    else
+        Library.Watermark.Visible = Bool
+    end
+end
 
 function Library:SetWatermark(Text)
 	local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
@@ -3634,6 +3639,7 @@ end;
 
 local udim2_new, colorsequence_new, colorsequencekeypoint_new = UDim2.new, ColorSequence.new, ColorSequenceKeypoint.new;
 function Library:Notify(Text, Time)
+	if SilentLoad then return end
 	local XSize, YSize = Library:GetTextBounds(Text, Library.Font, 14);
 
 	YSize = YSize + 7;
@@ -4422,8 +4428,9 @@ function Library:CreateWindow(...)
 		end
 	end))
 
-	if Config.AutoShow then task.spawn(Library.Toggle) end
-
+	if Config.AutoShow and not SilentLoad then
+    	task.spawn(Library.Toggle)
+	end
 	Window.Holder = Outer;
 
 	return Window;
