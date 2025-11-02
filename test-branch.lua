@@ -23,7 +23,7 @@ local Options = {};
 
 getgenv().Toggles = Toggles;
 getgenv().Options = Options;
-getgenv().SilentLoad = true
+getgenv().SilentLoad = getgenv().SilentLoad or false
 
 local Library = {
 	Registry = {};
