@@ -17,31 +17,6 @@ local TweenService = GetService.TweenService;
 local RenderStepped = RunService.RenderStepped;
 local ContentProvider = GetService.ContentProvider;
 
-do
-    if (getgenv().FixAssets) then
-        function Hook(Object, Metamethod, Function)
-            local ClonedMetatable = table.clone(getrawmetatable(Object));
-            local OldMetamethod = ClonedMetatable[Metamethod];
-
-            ClonedMetatable[Metamethod] = newcclosure(Function);
-
-            setrawmetatable(Object, ClonedMetatable);
-    
-            return OldMetamethod;
-        end
-
-        local Old = nil; Old = Hook(ContentProvider, "__namecall", function(Self, ...)
-            local Method = getnamecallmethod();
-
-            if (Method == "GetAssetFetchStatus") then
-                return Enum.AssetFetchStatus.None;
-            end
-
-            return Old(Self, ...);
-        end)
-    end
-end
-
 local Mouse = setmetatable({}, {
     __index = function(self, key)
         local mouse_location = InputService:GetMouseLocation();
