@@ -17,20 +17,6 @@ local TweenService = GetService.TweenService;
 local RenderStepped = RunService.RenderStepped;
 local ContentProvider = GetService.ContentProvider;
 
-local Mouse = setmetatable({}, {
-    __index = function(self, key)
-        local mouse_location = InputService:GetMouseLocation();
-
-        if (key == "X") then
-            return mouse_location.X;
-        elseif (key == "Y") then
-            return mouse_location.Y - 58;
-        end
-
-        return mouse_location;
-    end
-});
-
 local ScreenGui = Instance.new('ScreenGui', HUI);
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 
