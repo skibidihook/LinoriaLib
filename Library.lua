@@ -38,6 +38,9 @@ local Library = {
     Registry = {};
     RegistryMap = {};
 
+    ActiveRegistry = {};
+    ActiveRegistryMap = {};
+
     HudRegistry = {};
 
     FontColor = Color3.fromRGB(255, 255, 255);
@@ -341,6 +344,40 @@ function Library:AddToRegistry(Instance, Properties, IsHud)
     if IsHud then
         table.insert(Library.HudRegistry, Data);
     end;
+
+    local function Update()
+        if Instance.Visible then
+            if not Library.ActiveRegistryMap[Instance] then
+                local ActiveIdx = #Library.ActiveRegistry + 1;
+                Library.ActiveRegistry[ActiveIdx] = Data;
+                Library.ActiveRegistryMap[Instance] = ActiveIdx;
+
+                for Property, ColorIdx in next, Properties do
+                    if type(ColorIdx) == 'string' then
+                        Instance[Property] = Library[ColorIdx];
+                    elseif type(ColorIdx) == 'function' then
+                        Instance[Property] = ColorIdx()
+                    end
+                end;
+            end;
+        else
+            local ActiveIdx = Library.ActiveRegistryMap[Instance];
+            if ActiveIdx then
+                table.remove(Library.ActiveRegistry, ActiveIdx);
+                Library.ActiveRegistryMap[Instance] = nil;
+
+                for i = ActiveIdx, #Library.ActiveRegistry do
+                    local MapData = Library.ActiveRegistry[i];
+                    Library.ActiveRegistryMap[MapData.Instance] = i;
+                end;
+            end;
+        end;
+    end;
+
+    if Instance:IsA('GuiObject') then
+        Instance:GetPropertyChangedSignal('Visible'):Connect(Update);
+        Update();
+    end;
 end;
 
 function Library:RemoveFromRegistry(Instance)
@@ -359,22 +396,23 @@ function Library:RemoveFromRegistry(Instance)
             end;
         end;
 
+        local ActiveIdx = Library.ActiveRegistryMap[Instance];
+        if ActiveIdx then
+            table.remove(Library.ActiveRegistry, ActiveIdx);
+            Library.ActiveRegistryMap[Instance] = nil;
+
+            for i = ActiveIdx, #Library.ActiveRegistry do
+                local MapData = Library.ActiveRegistry[i];
+                Library.ActiveRegistryMap[MapData.Instance] = i;
+            end;
+        end;
+
         Library.RegistryMap[Instance] = nil;
     end;
 end;
 
 function Library:UpdateColorsUsingRegistry()
-    -- TODO: Could have an 'active' list of objects
-    -- where the active list only contains Visible objects.
-
-    -- IMPL: Could setup .Changed events on the AddToRegistry function
-    -- that listens for the 'Visible' propert being changed.
-    -- Visible: true => Add to active list, and call UpdateColors function
-    -- Visible: false => Remove from active list.
-
-    -- The above would be especially efficient for a rainbow menu color or live color-changing.
-
-    for Idx, Object in next, Library.Registry do
+    for Idx, Object in next, Library.ActiveRegistry do
         for Property, ColorIdx in next, Object.Properties do
             if type(ColorIdx) == 'string' then
                 Object.Instance[Property] = Library[ColorIdx];
@@ -386,18 +424,15 @@ function Library:UpdateColorsUsingRegistry()
 end;
 
 function Library:GiveSignal(Signal)
-    -- Only used for signals not attached to library instances, as those should be cleaned up on object destruction by Roblox
     table.insert(Library.Signals, Signal)
 end
 
 function Library:Unload()
-    -- Unload all of the signals
     for Idx = #Library.Signals, 1, -1 do
         local Connection = table.remove(Library.Signals, Idx)
         Connection:Disconnect()
     end
 
-     -- Call our unload callback, maybe to undo some hooks etc
     if Library.OnUnload then
         Library.OnUnload()
     end
@@ -670,7 +705,7 @@ do
             Position = UDim2.fromOffset(5, 5);
             TextXAlignment = Enum.TextXAlignment.Left;
             TextSize = 14;
-            Text = ColorPicker.Title,--Info.Default;
+            Text = ColorPicker.Title,
             TextWrapped = false;
             ZIndex = 16;
             Parent = PickerFrameInner;
@@ -1414,25 +1449,20 @@ do
         return Label;
     end;
 
-    function Funcs:AddButton(...)
-        -- TODO: Eventually redo this
+    function Funcs:AddButton(Info, ...)
         local Button = {};
-        local function ProcessButtonParams(Class, Obj, ...)
-            local Props = select(1, ...)
-            if type(Props) == 'table' then
-                Obj.Text = Props.Text
-                Obj.Func = Props.Func
-                Obj.DoubleClick = Props.DoubleClick
-                Obj.Tooltip = Props.Tooltip
-            else
-                Obj.Text = select(1, ...)
-                Obj.Func = select(2, ...)
-            end
 
-            assert(type(Obj.Func) == 'function', 'AddButton: `Func` callback is missing.');
+        if type(Info) == 'table' then
+            Button.Text = Info.Text
+            Button.Func = Info.Func
+            Button.DoubleClick = Info.DoubleClick
+            Button.Tooltip = Info.Tooltip
+        else
+            Button.Text = Info
+            Button.Func = select(1, ...)
         end
 
-        ProcessButtonParams('Button', Button, ...)
+        assert(type(Button.Func) == 'function', 'AddButton: `Func` callback is missing.');
 
         local Groupbox = self;
         local Container = Groupbox.Container;
@@ -1563,10 +1593,18 @@ do
         end
 
 
-        function Button:AddButton(...)
+        function Button:AddButton(Info, ...)
             local SubButton = {}
 
-            ProcessButtonParams('SubButton', SubButton, ...)
+            if type(Info) == 'table' then
+                SubButton.Text = Info.Text
+                SubButton.Func = Info.Func
+                SubButton.DoubleClick = Info.DoubleClick
+                SubButton.Tooltip = Info.Tooltip
+            else
+                SubButton.Text = Info
+                SubButton.Func = select(1, ...)
+            end
 
             self.Outer.Size = UDim2.new(0.5, -2, 0, 20)
 
@@ -1778,20 +1816,15 @@ do
             local reveal = Container.AbsoluteSize.X
 
             if not Box:IsFocused() or Box.TextBounds.X <= reveal - 2 * PADDING then
-                -- we aren't focused, or we fit so be normal
                 Box.Position = UDim2.new(0, PADDING, 0, 0)
             else
-                -- we are focused and don't fit, so adjust position
                 local cursor = Box.CursorPosition
                 if cursor ~= -1 then
-                    -- calculate pixel width of text from start to cursor
                     local subtext = string.sub(Box.Text, 1, cursor-1)
                     local width = TextService:GetTextSize(subtext, Box.TextSize, Box.Font, Vector2.new(math.huge, math.huge)).X
 
-                    -- check if we're inside the box with the cursor
                     local currentCursorPos = Box.Position.X.Offset + width
 
-                    -- adjust if necessary
                     if currentCursorPos < PADDING then
                         Box.Position = UDim2.fromOffset(PADDING-width, 0)
                     elseif currentCursorPos > reveal - PADDING - 1 then
@@ -3551,6 +3584,10 @@ function Library:CreateWindow(...)
                     InputService.MouseIconEnabled = false;
 
                     local mPos = InputService:GetMouseLocation();
+                    
+                    local Transparency = Outer.BackgroundTransparency;
+                    Cursor.Transparency = 1 - Transparency;
+                    CursorOutline.Transparency = 1 - Transparency;
 
                     Cursor.Color = Library.AccentColor;
 
