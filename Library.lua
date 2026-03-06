@@ -7,11 +7,23 @@ local RunService = game:GetService('RunService')
 local TweenService = game:GetService('TweenService');
 local RenderStepped = RunService.RenderStepped;
 local LocalPlayer = Players.LocalPlayer;
-local Mouse = LocalPlayer:GetMouse();
-
+local RealMouse = LocalPlayer:GetMouse();
+local Mouse = setmetatable({}, {
+    __index = function(self, key)
+        if key == "X" or key == "Y" then
+            local loc = InputService:GetMouseLocation()
+            return loc[key]
+        end
+        return RealMouse[key]
+    end,
+    __newindex = function(self, key, value)
+        RealMouse[key] = value
+    end
+});
 local ProtectGui = protectgui or (function() end);
 
 local ScreenGui = Instance.new('ScreenGui');
+ScreenGui.IgnoreGuiInset = true;
 ProtectGui(ScreenGui);
 
 local UIScale = Instance.new('UIScale', ScreenGui);
@@ -424,15 +436,18 @@ function Library:UpdateColorsUsingRegistry()
 end;
 
 function Library:GiveSignal(Signal)
+    -- Only used for signals not attached to library instances, as those should be cleaned up on object destruction by Roblox
     table.insert(Library.Signals, Signal)
 end
 
 function Library:Unload()
+    -- Unload all of the signals
     for Idx = #Library.Signals, 1, -1 do
         local Connection = table.remove(Library.Signals, Idx)
         Connection:Disconnect()
     end
 
+     -- Call our unload callback, maybe to undo some hooks etc
     if Library.OnUnload then
         Library.OnUnload()
     end
@@ -705,7 +720,7 @@ do
             Position = UDim2.fromOffset(5, 5);
             TextXAlignment = Enum.TextXAlignment.Left;
             TextSize = 14;
-            Text = ColorPicker.Title,
+            Text = ColorPicker.Title,--Info.Default;
             TextWrapped = false;
             ZIndex = 16;
             Parent = PickerFrameInner;
@@ -1200,7 +1215,15 @@ do
 
             ContainerLabel.Text = string.format('[%s] %s (%s)', KeyPicker.Value, Info.Text, KeyPicker.Mode);
 
-            ContainerLabel.Visible = true;
+            local ModeFilter = Library.KeypickerListMode or 3;
+            if ModeFilter == 1 then
+                ContainerLabel.Visible = State;
+            elseif ModeFilter == 2 then
+                ContainerLabel.Visible = (KeyPicker.Mode == 'Toggle' and State);
+            else
+                ContainerLabel.Visible = true;
+            end;
+
             ContainerLabel.TextColor3 = State and Library.AccentColor or Library.FontColor;
 
             Library.RegistryMap[ContainerLabel].Properties.TextColor3 = State and 'AccentColor' or 'FontColor';
@@ -1816,15 +1839,20 @@ do
             local reveal = Container.AbsoluteSize.X
 
             if not Box:IsFocused() or Box.TextBounds.X <= reveal - 2 * PADDING then
+                -- we aren't focused, or we fit so be normal
                 Box.Position = UDim2.new(0, PADDING, 0, 0)
             else
+                -- we are focused and don't fit, so adjust position
                 local cursor = Box.CursorPosition
                 if cursor ~= -1 then
+                    -- calculate pixel width of text from start to cursor
                     local subtext = string.sub(Box.Text, 1, cursor-1)
                     local width = TextService:GetTextSize(subtext, Box.TextSize, Box.Font, Vector2.new(math.huge, math.huge)).X
 
+                    -- check if we're inside the box with the cursor
                     local currentCursorPos = Box.Position.X.Offset + width
 
+                    -- adjust if necessary
                     if currentCursorPos < PADDING then
                         Box.Position = UDim2.fromOffset(PADDING-width, 0)
                     elseif currentCursorPos > reveal - PADDING - 1 then
@@ -2750,16 +2778,34 @@ do
 
     local WatermarkInner = Library:Create('Frame', {
         BackgroundColor3 = Library.MainColor;
-        BorderColor3 = Library.AccentColor;
-        BorderMode = Enum.BorderMode.Inset;
+        BorderSizePixel = 0;
         Size = UDim2.new(1, 0, 1, 0);
         ZIndex = 201;
         Parent = WatermarkOuter;
     });
 
-    Library:AddToRegistry(WatermarkInner, {
-        BorderColor3 = 'AccentColor';
+    local WatermarkStroke = Library:Create('UIStroke', {
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+        Thickness = 1;
+        Parent = WatermarkInner;
     });
+
+    local WatermarkGradient = Library:Create('UIGradient', {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 45, 135)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(135, 206, 250))
+        });
+        Rotation = 0;
+        Parent = WatermarkStroke;
+    });
+
+    local WatermarkGradientRotation = 0
+    Library:GiveSignal(RenderStepped:Connect(function(Delta)
+        if Library.Watermark.Visible then
+            WatermarkGradientRotation = (WatermarkGradientRotation + (Delta * 100)) % 360
+            WatermarkGradient.Rotation = WatermarkGradientRotation
+        end
+    end))
 
     local InnerFrame = Library:Create('Frame', {
         BackgroundColor3 = Color3.new(1, 1, 1);
@@ -3566,7 +3612,6 @@ function Library:CreateWindow(...)
             Outer.Visible = true;
 
             task.spawn(function()
-                -- TODO: add cursor fade?
                 local State = InputService.MouseIconEnabled;
 
                 local Cursor = Drawing.new('Triangle');
@@ -3588,6 +3633,10 @@ function Library:CreateWindow(...)
                     local Transparency = Outer.BackgroundTransparency;
                     Cursor.Transparency = 1 - Transparency;
                     CursorOutline.Transparency = 1 - Transparency;
+
+                    local ShouldShowCursor = InputService.MouseEnabled and (1 - Transparency) > 0;
+                    Cursor.Visible = ShouldShowCursor;
+                    CursorOutline.Visible = ShouldShowCursor;
 
                     Cursor.Color = Library.AccentColor;
 
