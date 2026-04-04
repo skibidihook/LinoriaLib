@@ -1146,24 +1146,41 @@ do
         end;
 
         function KeyPicker:Update()
-            if Info.NoUI then
-                return;
+            if not Info.NoUI then
+                DisplayLabel.Text = KeyPicker.Value;
             end;
 
             local State = KeyPicker:GetState();
+            local ListMode = Library.KeypickerListMode or 3 -- Default to 'All'
+            
+            local ShowInList = false
+            if ListMode == 3 or ListMode == 'All' then
+                ShowInList = true
+            elseif ListMode == 2 or ListMode == 'Toggled' then
+                ShowInList = (KeyPicker.Mode == 'Toggle' and KeyPicker.Toggled)
+            elseif ListMode == 1 or ListMode == 'Active' then
+                ShowInList = State
+            end
+
+            if KeyPicker.Value == 'None' and ListMode ~= 3 and ListMode ~= 'All' then
+                ShowInList = false
+            end
 
             ContainerLabel.Text = string.format('[%s] %s (%s)', KeyPicker.Value, Info.Text, KeyPicker.Mode);
-
-            ContainerLabel.Visible = true;
+            ContainerLabel.Visible = ShowInList;
             ContainerLabel.TextColor3 = State and Library.AccentColor or Library.FontColor;
 
-            Library.RegistryMap[ContainerLabel].Properties.TextColor3 = State and 'AccentColor' or 'FontColor';
+            if Library.RegistryMap[ContainerLabel] then
+                Library.RegistryMap[ContainerLabel].Properties.TextColor3 = State and 'AccentColor' or 'FontColor';
+            end
 
             local YSize = 0
             local XSize = 0
 
+            local VisibleLabels = 0
             for _, Label in next, Library.KeybindContainer:GetChildren() do
                 if Label:IsA('TextLabel') and Label.Visible then
+                    VisibleLabels = VisibleLabels + 1
                     YSize = YSize + 18;
                     if (Label.TextBounds.X > XSize) then
                         XSize = Label.TextBounds.X
@@ -1171,7 +1188,10 @@ do
                 end;
             end;
 
-            Library.KeybindFrame.Size = UDim2.new(0, math.max(XSize + 10, 210), 0, YSize + 23)
+            Library.KeybindFrame.Visible = (VisibleLabels > 0);
+            if VisibleLabels > 0 then
+                Library.KeybindFrame.Size = UDim2.new(0, math.max(XSize + 10, 210), 0, YSize + 23)
+            end
         end;
 
         function KeyPicker:GetState()
