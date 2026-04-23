@@ -1188,7 +1188,11 @@ do
                 end;
             end;
 
-            Library.KeybindFrame.Visible = (VisibleLabels > 0);
+            if Library.KeybindFrameEnabled == false then
+                Library.KeybindFrame.Visible = false;
+            else
+                Library.KeybindFrame.Visible = (VisibleLabels > 0);
+            end
             if VisibleLabels > 0 then
                 Library.KeybindFrame.Size = UDim2.new(0, math.max(XSize + 10, 210), 0, YSize + 23)
             end
