@@ -443,11 +443,11 @@ do
         });
 
         -- Transparency image taken from https://github.com/matas3535/SplixPrivateDrawingLibrary/blob/main/Library.lua cus i'm lazy
-        local CheckerFrame = Library:Create('ImageLabel', {
+        local CheckerFrame = Library:Create('Frame', {
             BorderSizePixel = 0;
             Size = UDim2.new(0, 27, 0, 13);
+            BackgroundColor3 = Color3.fromRGB(140, 140, 140);
             ZIndex = 5;
-            Image = 'http://www.roblox.com/asset/?id=12977615774';
             Visible = not not Info.Transparency;
             Parent = DisplayFrame;
         });
@@ -505,33 +505,71 @@ do
             ZIndex = 18;
             Parent = SatVibMapOuter;
         });
-
-        local SatVibMap = Library:Create('ImageLabel', {
+        local SatVibMap = Library:Create('Frame', {
             BorderSizePixel = 0;
             Size = UDim2.new(1, 0, 1, 0);
+            BackgroundColor3 = Color3.fromHSV(ColorPicker.Hue, 1, 1);
             ZIndex = 18;
-            Image = 'rbxassetid://4155801252';
             Parent = SatVibMapInner;
         });
 
-        local CursorOuter = Library:Create('ImageLabel', {
-            AnchorPoint = Vector2.new(0.5, 0.5);
-            Size = UDim2.new(0, 6, 0, 6);
-            BackgroundTransparency = 1;
-            Image = 'http://www.roblox.com/asset/?id=9619665977';
-            ImageColor3 = Color3.new(0, 0, 0);
+        local SatOverlay = Library:Create('Frame', {
+            BackgroundColor3 = Color3.new(1, 1, 1);
+            BorderSizePixel = 0;
+            Size = UDim2.new(1, 0, 1, 0);
+            ZIndex = 18;
+            Parent = SatVibMap;
+        });
+        Library:Create('UIGradient', {
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 1),
+            });
+            Parent = SatOverlay;
+        });
+
+        local VibOverlay = Library:Create('Frame', {
+            BackgroundColor3 = Color3.new(0, 0, 0);
+            BorderSizePixel = 0;
+            Size = UDim2.new(1, 0, 1, 0);
             ZIndex = 19;
             Parent = SatVibMap;
         });
+        Library:Create('UIGradient', {
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(1, 0),
+            });
+            Rotation = 90;
+            Parent = VibOverlay;
+        });
 
-        local CursorInner = Library:Create('ImageLabel', {
-            Size = UDim2.new(0, CursorOuter.Size.X.Offset - 2, 0, CursorOuter.Size.Y.Offset - 2);
-            Position = UDim2.new(0, 1, 0, 1);
-            BackgroundTransparency = 1;
-            Image = 'http://www.roblox.com/asset/?id=9619665977';
+        local CursorOuter = Library:Create('Frame', {
+            AnchorPoint = Vector2.new(0.5, 0.5);
+            Size = UDim2.new(0, 6, 0, 6);
+            BackgroundColor3 = Color3.new(0, 0, 0);
+            BorderSizePixel = 0;
+            ZIndex = 19;
+            Parent = SatVibMap;
+        });
+        Library:Create('UICorner', {
+            CornerRadius = UDim.new(1, 0);
+            Parent = CursorOuter;
+        });
+
+        local CursorInner = Library:Create('Frame', {
+            AnchorPoint = Vector2.new(0.5, 0.5);
+            Position = UDim2.fromScale(0.5, 0.5);
+            Size = UDim2.new(0, 4, 0, 4);
+            BackgroundColor3 = Color3.new(1, 1, 1);
+            BorderSizePixel = 0;
             ZIndex = 20;
             Parent = CursorOuter;
-        })
+        });
+        Library:Create('UICorner', {
+            CornerRadius = UDim.new(1, 0);
+            Parent = CursorInner;
+        });
 
         local HueSelectorOuter = Library:Create('Frame', {
             BorderColor3 = Color3.new(0, 0, 0);
@@ -636,12 +674,19 @@ do
 
             Library:AddToRegistry(TransparencyBoxInner, { BorderColor3 = 'OutlineColor' });
 
-            Library:Create('ImageLabel', {
-                BackgroundTransparency = 1;
+            local TransGradFrame = Library:Create('Frame', {
+                BackgroundColor3 = Color3.new(0, 0, 0);
+                BorderSizePixel = 0;
                 Size = UDim2.new(1, 0, 1, 0);
-                Image = 'http://www.roblox.com/asset/?id=12978095818';
                 ZIndex = 20;
                 Parent = TransparencyBoxInner;
+            });
+            Library:Create('UIGradient', {
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(1, 0),
+                });
+                Parent = TransGradFrame;
             });
 
             TransparencyCursor = Library:Create('Frame', { 
@@ -2257,12 +2302,12 @@ do
             Parent = DropdownInner;
         });
 
-        local DropdownArrow = Library:Create('ImageLabel', {
+        local DropdownArrow = Library:CreateLabel({
             AnchorPoint = Vector2.new(0, 0.5);
-            BackgroundTransparency = 1;
             Position = UDim2.new(1, -16, 0.5, 0);
             Size = UDim2.new(0, 12, 0, 12);
-            Image = 'http://www.roblox.com/asset/?id=6282522798';
+            Text = '▼';
+            TextSize = 10;
             ZIndex = 8;
             Parent = DropdownInner;
         });
