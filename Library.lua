@@ -942,6 +942,7 @@ do
 
     function Funcs:AddLabel(Text, DoesWrap)
         local Label = {}
+        local Groupbox = self
         local Container = self.Container
         local TextLabel = Library:CreateLabel({
             Size = UDim2.new(1, -4, 0, 15), TextSize = 14, Text = Text,
@@ -967,7 +968,7 @@ do
                 local Y = select(2, Library:GetTextBounds(NewText, Library.Font, 14, Vector2.new(TextLabel.AbsoluteSize.X, math.huge)))
                 TextLabel.Size = UDim2.new(1, -4, 0, Y)
             end
-            self:Resize()
+            Groupbox:Resize()
         end
 
         if not DoesWrap then setmetatable(Label, BaseAddons) end
