@@ -1,12 +1,12 @@
-local InputService = cloneref(game:GetService('UserInputService'))
-local TextService = cloneref(game:GetService('TextService'))
-local GuiService = cloneref(game:GetService('GuiService'))
-local Teams = cloneref(game:GetService('Teams'))
-local Players = cloneref(game:GetService('Players'))
-local RunService = cloneref(game:GetService('RunService'))
-local TweenService = cloneref(game:GetService('TweenService'))
+local clonereference = cloneref or (function(x) return x end)
+local InputService = clonereference(game:GetService('UserInputService'))
+local TextService = clonereference(game:GetService('TextService'))
+local GuiService = clonereference(game:GetService('GuiService'))
+local Teams = clonereference(game:GetService('Teams'))
+local Players = clonereference(game:GetService('Players'))
+local RunService = clonereference(game:GetService('RunService'))
+local TweenService = clonereference(game:GetService('TweenService'))
 local RenderStepped = RunService.RenderStepped
-local LocalPlayer = Players.LocalPlayer
 
 local function GetMouseX()
     return InputService:GetMouseLocation().X
