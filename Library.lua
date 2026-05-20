@@ -292,6 +292,23 @@ local function KeyToChar(KeyCode)
     return (Shift and Entry[2]) or Entry[1]
 end
 
+local function GetControls()
+    local LocalPlayer = Players.LocalPlayer
+    local Scripts = LocalPlayer and LocalPlayer:FindFirstChild('PlayerScripts')
+    local Module = Scripts and Scripts:FindFirstChild('PlayerModule')
+    if not Module then return nil end
+    local Ok, Controls = pcall(function() return require(Module):GetControls() end)
+    return Ok and Controls or nil
+end
+
+local function SetMovementEnabled(Enabled)
+    local Controls = GetControls()
+    if not Controls then return end
+    pcall(function()
+        if Enabled then Controls:Enable() else Controls:Disable() end
+    end)
+end
+
 function Library:CreateTextBox(Properties)
     local Container = Properties.Parent
     local Padding = 2
@@ -355,6 +372,7 @@ function Library:CreateTextBox(Properties)
         if ActiveTextBox and ActiveTextBox ~= Box then ActiveTextBox:Unfocus(false) end
         ActiveTextBox = Box
         Box.Focused = true
+        SetMovementEnabled(false)
         Box:Render()
     end
 
@@ -362,6 +380,7 @@ function Library:CreateTextBox(Properties)
         if ActiveTextBox ~= Box then return end
         ActiveTextBox = nil
         Box.Focused = false
+        SetMovementEnabled(true)
         Box:Render()
         if Box.FocusLostCallback then
             Library:SafeCallback(Box.FocusLostCallback, EnterPressed and true or false)
@@ -398,6 +417,10 @@ Library:GiveSignal(InputService.InputBegan:Connect(function(Input)
         local Char = KeyToChar(Key)
         if Char then Box:Append(Char) end
     end
+end))
+
+Library:GiveSignal(InputService.WindowFocusReleased:Connect(function()
+    if ActiveTextBox then ActiveTextBox:Unfocus(false) end
 end))
 
 local function CreateOutlinedBox(Properties)
