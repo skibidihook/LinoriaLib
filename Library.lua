@@ -1,12 +1,16 @@
-local clonereference = cloneref or (function(x) return x end)
-local InputService = clonereference(game:GetService('UserInputService'))
-local TextService = clonereference(game:GetService('TextService'))
-local GuiService = clonereference(game:GetService('GuiService'))
-local Teams = clonereference(game:GetService('Teams'))
-local Players = clonereference(game:GetService('Players'))
-local RunService = clonereference(game:GetService('RunService'))
-local TweenService = clonereference(game:GetService('TweenService'))
-local RenderStepped = RunService.RenderStepped
+--!nocheck
+--!nolint UnknownGlobal, DeprecatedGlobal, BuiltinGlobalWrite
+--!optimize 2
+
+local CloneRef = cloneref or (function(x) return x end)
+local InputService = CloneRef(game:GetService('UserInputService'))
+local TextService = CloneRef(game:GetService('TextService'))
+local GuiService = CloneRef(game:GetService('GuiService'))
+local Teams = CloneRef(game:GetService('Teams'))
+local Players = CloneRef(game:GetService('Players'))
+local RunService = CloneRef(game:GetService('RunService'))
+local TweenService = CloneRef(game:GetService('TweenService'))
+local PreRender = RunService.PreRender
 
 local function GetMouseX()
     return InputService:GetMouseLocation().X
@@ -40,7 +44,7 @@ local Library = {
 }
 
 local RainbowStep, Hue = 0, 0
-table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
+table.insert(Library.Signals, PreRender:Connect(function(Delta)
     RainbowStep = RainbowStep + Delta
     if RainbowStep >= (1 / 60) then
         RainbowStep = 0
@@ -54,14 +58,14 @@ end))
 local function GetPlayersString()
     local List = Players:GetPlayers()
     for i = 1, #List do List[i] = List[i].Name end
-    table.sort(List, function(a, b) return a < b end)
+    table.sort(List)
     return List
 end
 
 local function GetTeamsString()
     local List = Teams:GetTeams()
     for i = 1, #List do List[i] = List[i].Name end
-    table.sort(List, function(a, b) return a < b end)
+    table.sort(List)
     return List
 end
 
@@ -104,10 +108,16 @@ function Library:RemoveFromRegistry(Inst)
     local Data = Library.RegistryMap[Inst]
     if not Data then return end
     for i = #Library.Registry, 1, -1 do
-        if Library.Registry[i] == Data then table.remove(Library.Registry, i) end
+        if Library.Registry[i] == Data then
+            table.remove(Library.Registry, i)
+            break
+        end
     end
     for i = #Library.HudRegistry, 1, -1 do
-        if Library.HudRegistry[i] == Data then table.remove(Library.HudRegistry, i) end
+        if Library.HudRegistry[i] == Data then
+            table.remove(Library.HudRegistry, i)
+            break
+        end
     end
     Library.RegistryMap[Inst] = nil
 end
@@ -146,7 +156,7 @@ function Library:MakeDraggable(Inst, Cutoff)
                 0, GetMouseX() - ObjPos.X + (Inst.Size.X.Offset * Inst.AnchorPoint.X),
                 0, GetMouseY() - ObjPos.Y + (Inst.Size.Y.Offset * Inst.AnchorPoint.Y)
             )
-            RenderStepped:Wait()
+            PreRender:Wait()
         end
     end)
 end
@@ -216,7 +226,8 @@ function Library:UpdateDependencyBoxes()
 end
 
 function Library:MapValue(Value, MinA, MaxA, MinB, MaxB)
-    return (1 - ((Value - MinA) / (MaxA - MinA))) * MinB + ((Value - MinA) / (MaxA - MinA)) * MaxB
+    local Alpha = (Value - MinA) / (MaxA - MinA)
+    return (1 - Alpha) * MinB + Alpha * MaxB
 end
 
 function Library:GetTextBounds(Text, Font, Size, Resolution)
@@ -246,6 +257,147 @@ function Library:OnUnload(Callback) Library.OnUnload = Callback end
 
 Library:GiveSignal(ScreenGui.DescendantRemoving:Connect(function(Inst)
     if Library.RegistryMap[Inst] then Library:RemoveFromRegistry(Inst) end
+end))
+
+
+local ActiveTextBox
+
+local CharMap = {
+    Zero = { '0', ')' }, One = { '1', '!' }, Two = { '2', '@' },
+    Three = { '3', '#' }, Four = { '4', '$' }, Five = { '5', '%' },
+    Six = { '6', '^' }, Seven = { '7', '&' }, Eight = { '8', '*' },
+    Nine = { '9', '(' },
+    Minus = { '-', '_' }, Equals = { '=', '+' },
+    LeftBracket = { '[', '{' }, RightBracket = { ']', '}' },
+    BackSlash = { '\\', '|' }, Semicolon = { ';', ':' },
+    Quote = { "'", '"' }, Comma = { ',', '<' },
+    Period = { '.', '>' }, Slash = { '/', '?' },
+    Backquote = { '`', '~' }, Space = { ' ', ' ' },
+    KeypadZero = { '0' }, KeypadOne = { '1' }, KeypadTwo = { '2' },
+    KeypadThree = { '3' }, KeypadFour = { '4' }, KeypadFive = { '5' },
+    KeypadSix = { '6' }, KeypadSeven = { '7' }, KeypadEight = { '8' },
+    KeypadNine = { '9' }, KeypadPeriod = { '.' }, KeypadPlus = { '+' },
+    KeypadMinus = { '-' }, KeypadMultiply = { '*' }, KeypadDivide = { '/' },
+}
+
+local function KeyToChar(KeyCode)
+    local Name = KeyCode.Name
+    local Shift = InputService:IsKeyDown(Enum.KeyCode.LeftShift)
+        or InputService:IsKeyDown(Enum.KeyCode.RightShift)
+    if #Name == 1 then
+        return Shift and Name or string.lower(Name)
+    end
+    local Entry = CharMap[Name]
+    if not Entry then return nil end
+    return (Shift and Entry[2]) or Entry[1]
+end
+
+function Library:CreateTextBox(Properties)
+    local Container = Properties.Parent
+    local Padding = 2
+    local Box = {
+        Value = tostring(Properties.Default or ''),
+        Focused = false,
+        Numeric = Properties.Numeric or false,
+        MaxLength = Properties.MaxLength,
+        Placeholder = Properties.Placeholder or '',
+    }
+    Box.Region = Properties.ClickRegion or Container
+
+    local Label = Library:Create('TextLabel', {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(Padding, 0),
+        Size = UDim2.new(1, -Padding, 1, 0),
+        Font = Library.Font, TextColor3 = Library.FontColor,
+        TextSize = Properties.TextSize or 14, TextStrokeTransparency = 0,
+        TextXAlignment = Properties.TextXAlignment or Enum.TextXAlignment.Left,
+        Text = '', ZIndex = Properties.ZIndex or 7, Parent = Container,
+    })
+    Library:ApplyTextStroke(Label)
+    Library:AddToRegistry(Label, { TextColor3 = 'FontColor' })
+    Box.Label = Label
+
+    function Box:Render()
+        if Box.Value == '' and not Box.Focused then
+            Label.Text = Box.Placeholder
+            Label.TextColor3 = Color3.fromRGB(190, 190, 190)
+        else
+            Label.Text = Box.Focused and (Box.Value .. '|') or Box.Value
+            Label.TextColor3 = Library.FontColor
+        end
+        if Box.Focused then
+            local Avail = Container.AbsoluteSize.X - Padding * 2
+            local Width = Library:GetTextBounds(Label.Text, Label.Font, Label.TextSize, Vector2.new(math.huge, math.huge))
+            Label.Position = UDim2.fromOffset((Avail > 0 and Width > Avail) and Padding - (Width - Avail) or Padding, 0)
+        else
+            Label.Position = UDim2.fromOffset(Padding, 0)
+        end
+    end
+
+    function Box:Set(Text, FireChanged)
+        Text = tostring(Text)
+        if Box.MaxLength and #Text > Box.MaxLength then Text = string.sub(Text, 1, Box.MaxLength) end
+        Box.Value = Text
+        Box:Render()
+        if FireChanged and Box.Changed then Library:SafeCallback(Box.Changed, Box.Value) end
+    end
+
+    function Box:Append(Char)
+        local Candidate = Box.Value .. Char
+        if Box.MaxLength and #Candidate > Box.MaxLength then return end
+        if Box.Numeric and Candidate ~= '' and not tonumber(Candidate) then return end
+        Box:Set(Candidate, true)
+    end
+
+    function Box:IsFocused() return Box.Focused end
+
+    function Box:Focus()
+        if ActiveTextBox and ActiveTextBox ~= Box then ActiveTextBox:Unfocus(false) end
+        ActiveTextBox = Box
+        Box.Focused = true
+        Box:Render()
+    end
+
+    function Box:Unfocus(EnterPressed)
+        if ActiveTextBox ~= Box then return end
+        ActiveTextBox = nil
+        Box.Focused = false
+        Box:Render()
+        if Box.FocusLostCallback then
+            Library:SafeCallback(Box.FocusLostCallback, EnterPressed and true or false)
+        end
+    end
+
+    function Box:OnChanged(Func) Box.Changed = Func end
+    function Box:OnFocusLost(Func) Box.FocusLostCallback = Func end
+
+    Box.Region.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then Box:Focus() end
+    end)
+
+    Box:Render()
+    return Box
+end
+
+Library:GiveSignal(InputService.InputBegan:Connect(function(Input)
+    local Box = ActiveTextBox
+    local Kind = Input.UserInputType
+    if Kind == Enum.UserInputType.MouseButton1 then
+        if Box and not Library:IsMouseOverFrame(Box.Region) then Box:Unfocus(false) end
+        return
+    end
+    if not Box or Kind ~= Enum.UserInputType.Keyboard then return end
+    local Key = Input.KeyCode
+    if Key == Enum.KeyCode.Return or Key == Enum.KeyCode.KeypadEnter then
+        Box:Unfocus(true)
+    elseif Key == Enum.KeyCode.Escape then
+        Box:Unfocus(false)
+    elseif Key == Enum.KeyCode.Backspace then
+        Box:Set(string.sub(Box.Value, 1, -2), true)
+    else
+        local Char = KeyToChar(Key)
+        if Char then Box:Append(Char) end
+    end
 end))
 
 local function CreateOutlinedBox(Properties)
@@ -404,23 +556,29 @@ do
             }), Rotation = 90, Parent = HueBoxInner,
         })
 
-        local HueBox = Library:Create('TextBox', {
-            BackgroundTransparency = 1, Position = UDim2.new(0, 5, 0, 0),
-            Size = UDim2.new(1, -5, 1, 0), Font = Library.Font,
-            PlaceholderColor3 = Color3.fromRGB(190, 190, 190), PlaceholderText = 'Hex color',
-            Text = '#FFFFFF', TextColor3 = Library.FontColor, TextSize = 14,
-            TextStrokeTransparency = 0, TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 20, Parent = HueBoxInner,
+        local HueBox = Library:CreateTextBox({
+            Parent = HueBoxInner, ClickRegion = HueBoxInner,
+            Default = '#FFFFFF', Placeholder = 'Hex color', ZIndex = 20,
         })
-        Library:ApplyTextStroke(HueBox)
 
-        local RgbBoxBase = Library:Create(HueBoxOuter:Clone(), {
-            Position = UDim2.new(0.5, 2, 0, 228),
-            Size = UDim2.new(0.5, -6, 0, 20), Parent = PickerFrameInner,
+        local RgbBoxOuter = Library:Create('Frame', {
+            BorderColor3 = Color3.new(0, 0, 0), Position = UDim2.new(0.5, 2, 0, 228),
+            Size = UDim2.new(0.5, -6, 0, 20), ZIndex = 18, Parent = PickerFrameInner,
         })
-        local RgbBox = Library:Create(RgbBoxBase.Frame:FindFirstChild('TextBox'), {
-            Text = '255, 255, 255', PlaceholderText = 'RGB color',
-            TextColor3 = Library.FontColor,
+        local RgbBoxInner = Library:Create('Frame', {
+            BackgroundColor3 = Library.MainColor, BorderColor3 = Library.OutlineColor,
+            BorderMode = Enum.BorderMode.Inset, Size = UDim2.new(1, 0, 1, 0),
+            ZIndex = 18, Parent = RgbBoxOuter,
+        })
+        Library:Create('UIGradient', {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(212, 212, 212)),
+            }), Rotation = 90, Parent = RgbBoxInner,
+        })
+        local RgbBox = Library:CreateTextBox({
+            Parent = RgbBoxInner, ClickRegion = RgbBoxInner,
+            Default = '255, 255, 255', Placeholder = 'RGB color', ZIndex = 20,
         })
 
         local TransparencyBoxInner, TransparencyCursor
@@ -535,9 +693,7 @@ do
         Library:AddToRegistry(Highlight, { BackgroundColor3 = 'AccentColor' })
         Library:AddToRegistry(SatVibMapInner, { BackgroundColor3 = 'BackgroundColor', BorderColor3 = 'OutlineColor' })
         Library:AddToRegistry(HueBoxInner, { BackgroundColor3 = 'MainColor', BorderColor3 = 'OutlineColor' })
-        Library:AddToRegistry(RgbBoxBase.Frame, { BackgroundColor3 = 'MainColor', BorderColor3 = 'OutlineColor' })
-        Library:AddToRegistry(RgbBox, { TextColor3 = 'FontColor' })
-        Library:AddToRegistry(HueBox, { TextColor3 = 'FontColor' })
+        Library:AddToRegistry(RgbBoxInner, { BackgroundColor3 = 'MainColor', BorderColor3 = 'OutlineColor' })
 
         local SeqTable = {}
         for H = 0, 1, 0.1 do
@@ -545,15 +701,15 @@ do
         end
         Library:Create('UIGradient', { Color = ColorSequence.new(SeqTable), Rotation = 90, Parent = HueSelectorInner })
 
-        HueBox.FocusLost:Connect(function()
-            local Ok, Result = pcall(Color3.fromHex, HueBox.Text)
+        HueBox:OnFocusLost(function()
+            local Ok, Result = pcall(Color3.fromHex, HueBox.Value)
             if Ok and typeof(Result) == 'Color3' then
                 ColorPicker.Hue, ColorPicker.Sat, ColorPicker.Vib = Color3.toHSV(Result)
             end
             ColorPicker:Display()
         end)
-        RgbBox.FocusLost:Connect(function()
-            local R, G, B = RgbBox.Text:match('(%d+),%s*(%d+),%s*(%d+)')
+        RgbBox:OnFocusLost(function()
+            local R, G, B = RgbBox.Value:match('(%d+),%s*(%d+),%s*(%d+)')
             if R and G and B then
                 ColorPicker.Hue, ColorPicker.Sat, ColorPicker.Vib = Color3.toHSV(Color3.fromRGB(R, G, B))
             end
@@ -574,12 +730,12 @@ do
             end
             CursorOuter.Position = UDim2.new(ColorPicker.Sat, 0, 1 - ColorPicker.Vib, 0)
             HueCursor.Position = UDim2.new(0, 0, ColorPicker.Hue, 0)
-            HueBox.Text = '#' .. ColorPicker.Value:ToHex()
-            RgbBox.Text = table.concat({
+            HueBox:Set('#' .. ColorPicker.Value:ToHex(), false)
+            RgbBox:Set(table.concat({
                 math.floor(ColorPicker.Value.R * 255),
                 math.floor(ColorPicker.Value.G * 255),
                 math.floor(ColorPicker.Value.B * 255),
-            }, ', ')
+            }, ', '), false)
             Library:SafeCallback(ColorPicker.Callback, ColorPicker.Value)
             Library:SafeCallback(ColorPicker.Changed, ColorPicker.Value)
         end
@@ -624,7 +780,7 @@ do
                 ColorPicker.Sat = (MX - MinX) / (MaxX - MinX)
                 ColorPicker.Vib = 1 - ((MY - MinY) / (MaxY - MinY))
                 ColorPicker:Display()
-                RenderStepped:Wait()
+                PreRender:Wait()
             end
             Library:AttemptSave()
         end)
@@ -636,7 +792,7 @@ do
                 local MaxY = MinY + HueSelectorInner.AbsoluteSize.Y
                 ColorPicker.Hue = (math.clamp(GetMouseY(), MinY, MaxY) - MinY) / (MaxY - MinY)
                 ColorPicker:Display()
-                RenderStepped:Wait()
+                PreRender:Wait()
             end
             Library:AttemptSave()
         end)
@@ -664,7 +820,7 @@ do
                     local MaxX = MinX + TransparencyBoxInner.AbsoluteSize.X
                     ColorPicker.Transparency = 1 - ((math.clamp(GetMouseX(), MinX, MaxX) - MinX) / (MaxX - MinX))
                     ColorPicker:Display()
-                    RenderStepped:Wait()
+                    PreRender:Wait()
                 end
                 Library:AttemptSave()
             end)
@@ -896,6 +1052,7 @@ do
         end)
 
         Library:GiveSignal(InputService.InputBegan:Connect(function(Input)
+            if ActiveTextBox then return end
             if not Picking then
                 if KeyPicker.Mode == 'Toggle' then
                     local Key = KeyPicker.Value
@@ -1149,63 +1306,37 @@ do
             ZIndex = 7, Parent = TextBoxInner,
         })
 
-        local Box = Library:Create('TextBox', {
-            BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.fromScale(5, 1), Font = Library.Font,
-            PlaceholderColor3 = Color3.fromRGB(190, 190, 190),
-            PlaceholderText = Info.Placeholder or '', Text = Info.Default or '',
-            TextColor3 = Library.FontColor, TextSize = 14,
-            TextStrokeTransparency = 0, TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 7, Parent = InnerContainer,
+        local Box = Library:CreateTextBox({
+            Parent = InnerContainer,
+            ClickRegion = TextBoxInner,
+            Default = Info.Default or '',
+            Placeholder = Info.Placeholder or '',
+            Numeric = Info.Numeric or false,
+            MaxLength = Info.MaxLength,
+            ZIndex = 7,
         })
-        Library:ApplyTextStroke(Box)
-        Library:AddToRegistry(Box, { TextColor3 = 'FontColor' })
 
         function Textbox:SetValue(Text)
             if Info.MaxLength and #Text > Info.MaxLength then Text = Text:sub(1, Info.MaxLength) end
             if Textbox.Numeric and not tonumber(Text) and #Text > 0 then Text = Textbox.Value end
             Textbox.Value = Text
-            Box.Text = Text
+            Box:Set(Text, false)
             Library:SafeCallback(Textbox.Callback, Textbox.Value)
             Library:SafeCallback(Textbox.Changed, Textbox.Value)
         end
 
         if Textbox.Finished then
-            Box.FocusLost:Connect(function(Enter)
+            Box:OnFocusLost(function(Enter)
                 if not Enter then return end
-                Textbox:SetValue(Box.Text)
+                Textbox:SetValue(Box.Value)
                 Library:AttemptSave()
             end)
         else
-            Box:GetPropertyChangedSignal('Text'):Connect(function()
-                Textbox:SetValue(Box.Text)
+            Box:OnChanged(function()
+                Textbox:SetValue(Box.Value)
                 Library:AttemptSave()
             end)
         end
-
-        local function Update()
-            local Padding, Reveal = 2, InnerContainer.AbsoluteSize.X
-            if not Box:IsFocused() or Box.TextBounds.X <= Reveal - 2 * Padding then
-                Box.Position = UDim2.new(0, Padding, 0, 0)
-            else
-                local Cursor = Box.CursorPosition
-                if Cursor ~= -1 then
-                    local Subtext = string.sub(Box.Text, 1, Cursor - 1)
-                    local Width = TextService:GetTextSize(Subtext, Box.TextSize, Box.Font, Vector2.new(math.huge, math.huge)).X
-                    local CurPos = Box.Position.X.Offset + Width
-                    if CurPos < Padding then
-                        Box.Position = UDim2.fromOffset(Padding - Width, 0)
-                    elseif CurPos > Reveal - Padding - 1 then
-                        Box.Position = UDim2.fromOffset(Reveal - Width - Padding - 1, 0)
-                    end
-                end
-            end
-        end
-        task.spawn(Update)
-        Box:GetPropertyChangedSignal('Text'):Connect(Update)
-        Box:GetPropertyChangedSignal('CursorPosition'):Connect(Update)
-        Box.FocusLost:Connect(Update)
-        Box.Focused:Connect(Update)
 
         function Textbox:OnChanged(Func)
             Textbox.Changed = Func
@@ -1428,7 +1559,7 @@ do
                     Library:SafeCallback(Slider.Callback, Slider.Value)
                     Library:SafeCallback(Slider.Changed, Slider.Value)
                 end
-                RenderStepped:Wait()
+                PreRender:Wait()
             end
             Library:AttemptSave()
         end)
@@ -1665,14 +1796,14 @@ do
             if ListOuter.Visible then Dropdown:CloseDropdown() else Dropdown:OpenDropdown() end
         end)
 
-        InputService.InputBegan:Connect(function(Input)
+        Library:GiveSignal(InputService.InputBegan:Connect(function(Input)
             if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
             local P, S = ListOuter.AbsolutePosition, ListOuter.AbsoluteSize
             local MX, MY = GetMouseX(), GetMouseY()
             if MX < P.X or MX > P.X + S.X or MY < (P.Y - 21) or MY > P.Y + S.Y then
                 Dropdown:CloseDropdown()
             end
-        end)
+        end))
 
         Dropdown:BuildDropdownList()
         Dropdown:Display()
@@ -2265,7 +2396,7 @@ function Library:CreateWindow(...)
                     CursorOutline.PointA = Cursor.PointA
                     CursorOutline.PointB = Cursor.PointB
                     CursorOutline.PointC = Cursor.PointC
-                    RenderStepped:Wait()
+                    PreRender:Wait()
                 end
 
                 InputService.MouseIconEnabled = State
@@ -2307,6 +2438,7 @@ function Library:CreateWindow(...)
     end
 
     Library:GiveSignal(InputService.InputBegan:Connect(function(Input, Processed)
+        if ActiveTextBox then return end
         if type(Library.ToggleKeybind) == 'table' and Library.ToggleKeybind.Type == 'KeyPicker' then
             if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode.Name == Library.ToggleKeybind.Value then
                 task.spawn(Library.Toggle)
@@ -2330,8 +2462,8 @@ local function OnPlayerChange()
         end
     end
 end
-Players.PlayerAdded:Connect(OnPlayerChange)
-Players.PlayerRemoving:Connect(OnPlayerChange)
+Library:GiveSignal(Players.PlayerAdded:Connect(OnPlayerChange))
+Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 
 getgenv().Library = Library
 return Library
