@@ -246,6 +246,7 @@ function Library:GiveSignal(Signal)
 end
 
 function Library:Unload()
+    if Library.UnfocusTextBox then Library:UnfocusTextBox() end
     for i = #Library.Signals, 1, -1 do
         table.remove(Library.Signals, i):Disconnect()
     end
@@ -301,12 +302,25 @@ local function GetControls()
     return Ok and Controls or nil
 end
 
+local SavedCameraType
 local function SetMovementEnabled(Enabled)
     local Controls = GetControls()
-    if not Controls then return end
-    pcall(function()
-        if Enabled then Controls:Enable() else Controls:Disable() end
-    end)
+    if Controls then
+        pcall(function()
+            if Enabled then Controls:Enable() else Controls:Disable() end
+        end)
+    end
+    local Camera = workspace.CurrentCamera
+    if not Camera then return end
+    if Enabled then
+        if SavedCameraType ~= nil then
+            pcall(function() Camera.CameraType = SavedCameraType end)
+            SavedCameraType = nil
+        end
+    elseif SavedCameraType == nil then
+        SavedCameraType = Camera.CameraType
+        pcall(function() Camera.CameraType = Enum.CameraType.Scriptable end)
+    end
 end
 
 function Library:CreateTextBox(Properties)
@@ -315,6 +329,7 @@ function Library:CreateTextBox(Properties)
     local Box = {
         Value = tostring(Properties.Default or ''),
         Focused = false,
+        Alive = true,
         Numeric = Properties.Numeric or false,
         MaxLength = Properties.MaxLength,
         Placeholder = Properties.Placeholder or '',
@@ -333,8 +348,10 @@ function Library:CreateTextBox(Properties)
     Library:ApplyTextStroke(Label)
     Library:AddToRegistry(Label, { TextColor3 = 'FontColor' })
     Box.Label = Label
+    Label.Destroying:Connect(function() Box.Alive = false end)
 
     function Box:Render()
+        if not Box.Alive then return end
         if Box.Value == '' and not Box.Focused then
             Label.Text = Box.Placeholder
             Label.TextColor3 = Color3.fromRGB(190, 190, 190)
@@ -396,6 +413,10 @@ function Library:CreateTextBox(Properties)
 
     Box:Render()
     return Box
+end
+
+function Library:UnfocusTextBox()
+    if ActiveTextBox then ActiveTextBox:Unfocus(false) end
 end
 
 Library:GiveSignal(InputService.InputBegan:Connect(function(Input)
@@ -2394,6 +2415,7 @@ function Library:CreateWindow(...)
         Fading = true
         Toggled = not Toggled
         ModalElement.Modal = Toggled
+        if not Toggled and Library.UnfocusTextBox then Library:UnfocusTextBox() end
 
         if Toggled then
             Outer.Visible = true
@@ -2461,7 +2483,7 @@ function Library:CreateWindow(...)
     end
 
     Library:GiveSignal(InputService.InputBegan:Connect(function(Input, Processed)
-        if ActiveTextBox then return end
+        if ActiveTextBox and KeyToChar(Input.KeyCode) then return end
         if type(Library.ToggleKeybind) == 'table' and Library.ToggleKeybind.Type == 'KeyPicker' then
             if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode.Name == Library.ToggleKeybind.Value then
                 task.spawn(Library.Toggle)
