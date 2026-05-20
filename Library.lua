@@ -389,19 +389,19 @@ function Library:CreateTextBox(Properties)
         if ActiveTextBox and ActiveTextBox ~= Box then ActiveTextBox:Unfocus(false) end
         ActiveTextBox = Box
         Box.Focused = true
-        SetMovementEnabled(false)
         Box:Render()
+        task.spawn(SetMovementEnabled, false)
     end
 
     function Box:Unfocus(EnterPressed)
         if ActiveTextBox ~= Box then return end
         ActiveTextBox = nil
         Box.Focused = false
-        SetMovementEnabled(true)
         Box:Render()
         if Box.FocusLostCallback then
             Library:SafeCallback(Box.FocusLostCallback, EnterPressed and true or false)
         end
+        task.spawn(SetMovementEnabled, true)
     end
 
     function Box:OnChanged(Func) Box.Changed = Func end
