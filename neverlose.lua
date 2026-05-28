@@ -5,20 +5,20 @@
     Discord: https://arceney.win/discord
     Other-Projects: https://4lpaca.win
 ]]
-
+-- ud!
 do
 	local Constant = 'L'..'P'..'H'..'_NO_VIRTUALIZE';
 	getfenv()[Constant] = getfenv()[Constant] or function(f) return f end;
 end;
 
-cloneref = cloneref or function(i) return i end;
+local cloneref: cloneref = cloneref or function(f) return f end;
 gethui = gethui or get_hidden_gui;
-getcustomasset = getcustomasset or getsynasset;
+getcustomasset = getcustomasset;
 getgenv = getgenv or getfenv;
 
 local LOAD_ENV = LPH_NO_VIRTUALIZE(function()
-	if game:GetService('RunService'):IsStudio() then
-		local BaseWorkspace = Instance.new('Folder',game:GetService("ReplicatedFirst"));
+	if cloneref(game:GetService('RunService'):IsStudio()) then
+		local BaseWorkspace = cloneref(game:GetService("ReplicatedFirst")):FindFirstChild('PRI_WORKSPACE') or Instance.new('Folder',cloneref(game:GetService("ReplicatedFirst")));
 
 		BaseWorkspace.Name = 'PRI\0.'..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)));
 
@@ -156,7 +156,7 @@ NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/Builder
 NeverLose.GlobalSignals = {};
 NeverLose.UnloadEnabled = false;
 
-local cloneref: cloneref = cloneref or function(f) return f end;
+local GuiService: GuiService = cloneref(game:GetService('GuiService'));
 local TweenService: TweenService = cloneref(game:GetService('TweenService'));
 local UserInputService: UserInputService = cloneref(game:GetService('UserInputService'));
 local TextService: TextService = cloneref(game:GetService('TextService'));
@@ -165,15 +165,18 @@ local Players: Players = cloneref(game:GetService('Players'));
 local HttpService: HttpService = cloneref(game:GetService('HttpService'));
 local LocalPlayer: Player = Players.LocalPlayer;
 local CoreGui: PlayerGui = (gethui and gethui()) or (get_hidden_gui and get_hidden_gui()) or cloneref(game:FindFirstChild('CoreGui')) or cloneref(LocalPlayer.PlayerGui);
-local Mouse: Mouse = cloneref(LocalPlayer:GetMouse());
 local CurrentCamera: Camera = cloneref(workspace.CurrentCamera);
-local ProtectGui = protect_gui or protectgui or (syn and syn.protect_gui) or function(s) return s; end;
+local ProtectGui = protect_gui or protectgui or function(s) return s; end;
 local GlobalWindow = Instance.new('ScreenGui');
 local ManualTween = TweenInfo.new(0.1);
 local SlowyTween = TweenInfo.new(0.175);
 local FastTween = TweenInfo.new(0.05);
 local VSlowTween = TweenInfo.new(0.5,Enum.EasingStyle.Quint);
 local Encryption = {};
+local function GetMouseLocation()
+    local Location = UserInputService:GetMouseLocation()
+    return Location.X, Location.Y - GuiService:GetGuiInset().Y
+end
 
 NeverLose.UserProfile = Players:GetUserThumbnailAsync(LocalPlayer.UserId , Enum.ThumbnailType.HeadShot , Enum.ThumbnailSize.Size150x150)
 NeverLose.RandomString = LPH_NO_VIRTUALIZE(function()
@@ -821,25 +824,22 @@ NeverLose.LoadIcon = LPH_NO_VIRTUALIZE(function()
 	};
 end);
 
-NeverLose.IsMouseOverFrame = LPH_NO_VIRTUALIZE(function(self , Frame)
-	if not Frame then
-		return;
-	end;
+NeverLose.IsMouseOverFrame = LPH_NO_VIRTUALIZE(function(self, Frame)
+    if not Frame then return end
 
-	if NeverLose.Global3DRenderMode then
-		if Frame.GuiState == Enum.GuiState.Hover or Frame.GuiState == Enum.GuiState.Press then
-			return true;
-		end;
+    if NeverLose.Global3DRenderMode then
+        if Frame.GuiState == Enum.GuiState.Hover or Frame.GuiState == Enum.GuiState.Press then
+            return true
+        end
+        return false
+    end
 
-		return false;
-	end;
-
-	local AbsPos: Vector2, AbsSize: Vector2 = Frame.AbsolutePosition, Frame.AbsoluteSize;
-
-	if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
-		return true;
-	end;
-end);
+    local MX, MY = GetMouseLocation()
+    local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize
+    if MX >= AbsPos.X and MX <= AbsPos.X + AbsSize.X and MY >= AbsPos.Y and MY <= AbsPos.Y + AbsSize.Y then
+        return true
+    end
+end)
 
 NeverLose.CreateSignal = LPH_NO_VIRTUALIZE(function(self , DefaultValue)
 	local __cache = Instance.new('BindableEvent');
@@ -1628,15 +1628,14 @@ function NeverLose:CreateColorPicker(HandleFrame: Frame)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 			ColorPickerLib.IsHold = true;
 
-			while (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or ColorPickerLib.IsHold) do task.wait()
-				local ColorY = ColorMap.AbsolutePosition.X
-				local ColorYM = ColorY + ColorMap.AbsoluteSize.X;
-				local Value = math.clamp(Mouse.X, ColorY, ColorYM)
-				local Code = ((Value - ColorY) / (ColorYM - ColorY));
-
-				ColorPickerLib.H = Code;
-				ColorPickerLib:Update();
-			end;
+            while (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or ColorPickerLib.IsHold) do task.wait()
+                local MX = GetMouseLocation()
+                local ColorY = ColorMap.AbsolutePosition.X
+                local ColorYM = ColorY + ColorMap.AbsoluteSize.X
+                local Value = math.clamp(MX, ColorY, ColorYM)
+                ColorPickerLib.H = (Value - ColorY) / (ColorYM - ColorY)
+                ColorPickerLib:Update()
+            end
 		end;
 	end)));
 
@@ -1644,17 +1643,14 @@ function NeverLose:CreateColorPicker(HandleFrame: Frame)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 			ColorPickerLib.IsHold = true;
 
-			while (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or ColorPickerLib.IsHold) do task.wait();
-				local PosX = SaViMap.AbsolutePosition.X;
-				local ScaleX = PosX + SaViMap.AbsoluteSize.X;
-				local Value, PosY = math.clamp(Mouse.X, PosX, ScaleX), SaViMap.AbsolutePosition.Y;
-				local ScaleY = PosY + SaViMap.AbsoluteSize.Y;
-				local Vals = math.clamp(Mouse.Y, PosY, ScaleY);
-
-				ColorPickerLib.S = (Value - PosX) / (ScaleX - PosX);
-				ColorPickerLib.V = (1 - ((Vals - PosY) / (ScaleY - PosY)));
-				ColorPickerLib:Update();
-			end
+            while (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or ColorPickerLib.IsHold) do task.wait()
+                local MX = GetMouseLocation()
+                local ColorY = ColorMap.AbsolutePosition.X
+                local ColorYM = ColorY + ColorMap.AbsoluteSize.X
+                local Value = math.clamp(MX, ColorY, ColorYM)
+                ColorPickerLib.H = (Value - ColorY) / (ColorYM - ColorY)
+                ColorPickerLib:Update()
+            end
 		end
 	end)));
 
@@ -3927,7 +3923,7 @@ function NeverLose:CreateWindow(Config)
 				NeverLose.PlayAnimate(WindowFrame,VSlowTween , {
 					Position = UDim2.fromScale(0.5,0.5);
 				});
-				
+
 				WindowFrame.Parent = Window.SurfaceGui;
 			end;
 		else
@@ -4624,7 +4620,7 @@ function NeverLose:CreateWindow(Config)
 		Part.Size = Vector3.zero;
 
 		local SurfaceGui = Instance.new("SurfaceGui")
-		
+
 		SurfaceGui.Parent = NeverLose.ScreenGui;
 		SurfaceGui.Adornee = Part;
 		SurfaceGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -4633,37 +4629,37 @@ function NeverLose:CreateWindow(Config)
 		SurfaceGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 		SurfaceGui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize;
 		SurfaceGui.PixelsPerStud = 40;
-		
+
 		Window.SurfaceGui = SurfaceGui;
 		NeverLose.GlobalSurfaceGui = SurfaceGui;
-		
+
 		local PerfectScale = Vector2.new(1920 , 1080 + 300)
-		
+
 		Window.Load3DBlock = LPH_NO_VIRTUALIZE(function()
 			if not Window.Signal:GetValue() then
 				local _,OnScreen = CurrentCamera:WorldToViewportPoint(Part.Position);
-				
+
 				if OnScreen then
 					NeverLose.PlayAnimate(Part,VSlowTween , {
 						CFrame = CurrentCamera.CFrame * CFrame.new(0,0,-15) * CFrame.Angles(0,math.rad(180),0);
 					});
 				end;
-					
+
 				return
 			end;
 
 			local Dimensions = 50;
-			
+
 			local XY_Incom = Vector2.new(PerfectScale.X + 5, PerfectScale.Y * 1.35) / (Dimensions / 2);
 			local PerfectDistance = XY_Incom.Magnitude;
 			local SizeIndicator = PerfectDistance / 1.35;
-				
+
 			Part.Parent = NeverLose.BlurModuleParent or workspace;
-			
+
 			NeverLose.PlayAnimate(Part,VSlowTween , {
 				CFrame = (CurrentCamera.CFrame * CFrame.new(0,0,-25)) * CFrame.Angles(0,math.rad(180),0);
 			});
-			
+
 			Part.Size = Vector3.new(PerfectScale.X / SizeIndicator,PerfectScale.Y / SizeIndicator,0);
 		end);
 
@@ -4674,8 +4670,8 @@ function NeverLose:CreateWindow(Config)
 			if val then
 				Window.Load3DBlock();
 			else
-				
-				
+
+
 				Part.Parent = nil;
 			end;
 
@@ -5392,9 +5388,10 @@ function NeverLose:CreateWindow(Config)
 
 		UpdateSize();
 
-		function ConfigLib:GetData()
+		function ConfigLib:GetData(performance)
 			local ikc = {};
-
+			
+			local cd = 0;
 			for Flag,v in next , NeverLose.Flags do
 				if v and v.GetValue then
 					local data = v:GetValue();
@@ -5411,6 +5408,14 @@ function NeverLose:CreateWindow(Config)
 						});
 					end;
 				end;
+				
+				if performance then
+					if cd % 35 == 1 then
+						task.wait()
+					end
+				end;
+				
+				cd += 1;
 			end;
 
 			return NeverLose.Base64Encode(Encryption.new(HttpService:JSONEncode(ikc)));
@@ -5434,7 +5439,11 @@ function NeverLose:CreateWindow(Config)
 			if not isfolder(Window.ConfigFolder) then
 				makefolder(Window.ConfigFolder);
 			end;
-
+			
+			if not isfile(Window.ConfigFolder..'/Default') then
+				writefile(Window.ConfigFolder..'/Default',ConfigLib:GetData());
+			end;
+			
 			for i,v in next,ConfigMenu:GetChildren() do
 				if v:GetAttribute('ConfigItem') then
 					v:Destroy();
@@ -5639,6 +5648,11 @@ function NeverLose:CreateWindow(Config)
 				end)));
 
 				local deleter,signal = NeverLose:CreateInput(DeleteConfig,function()
+					if ConfigNameStr == "Default" then
+						Logging.new("trash-can","You can't delete default config!",3.5)
+						return;
+					end;
+					
 					delfile(Window.ConfigFolder..'/'..ConfigNameStr);
 
 					UpdateSize();
@@ -5702,6 +5716,36 @@ function NeverLose:CreateWindow(Config)
 
 			table.clear(ConfigList);
 		end;
+		
+		task.delay(1,function()
+			if ConfigLib.SelectedConfig == "Default" then
+				local path = Window.ConfigFolder..'/Default';
+				local ConfigNameStr = "Default";
+				
+				if isfile(path) then
+					local data = readfile(path);
+
+					ConfigLib:LoadData(data);
+
+					ConfigLib.SelectedConfig = ConfigNameStr;
+					ConfigName.Text = ConfigNameStr;
+
+					UpdateSize();
+
+					ConfigLib:RefreshConfig();
+
+					Logging.new("folder","Loaded Default Config",3.5);
+					
+					task.spawn(function()
+						while true do task.wait(5.75);
+							if isfile(path) and ConfigLib.SelectedConfig == "Default" then
+								writefile(Window.ConfigFolder..'/Default',ConfigLib:GetData(true));
+							end;
+						end;
+					end);
+				end;
+			end;
+		end);
 
 		local hover_write = NeverLose:CreateInput(ConfigIcon,function()
 			local path = Window.ConfigFolder..'/'..(ConfigLib.SelectedConfig or "Default");
