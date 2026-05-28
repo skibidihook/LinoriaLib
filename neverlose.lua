@@ -17,7 +17,7 @@ getcustomasset = getcustomasset;
 getgenv = getgenv or getfenv;
 
 local LOAD_ENV = LPH_NO_VIRTUALIZE(function()
-	if cloneref(game:GetService('RunService'):IsStudio()) then
+	if cloneref(game:GetService('RunService')):IsStudio() then
 		local BaseWorkspace = cloneref(game:GetService("ReplicatedFirst")):FindFirstChild('PRI_WORKSPACE') or Instance.new('Folder',cloneref(game:GetService("ReplicatedFirst")));
 
 		BaseWorkspace.Name = 'PRI\0.'..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)))..tostring(string.char(math.random(50,120)));
