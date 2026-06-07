@@ -251,11 +251,14 @@ do
 
 	if getcustomasset then
 		local Dir = 'NLAssets';
-		pcall(function()
+		local FolderOk, FolderErr = pcall(function()
 			if not isfolder(Dir) then
 				makefolder(Dir);
 			end;
 		end);
+		if not FolderOk then
+			warn(`[Neverlose] makefolder failed for '{Dir}': {FolderErr}`);
+		end;
 
 		local Write = function(FileName, B64)
 			local Path = `{Dir}/{FileName}`;
@@ -3862,11 +3865,14 @@ function NeverLose:CreateWindow(Config)
 	NeverLose.GlobalLogo = Window.Logo;
 
 	local Logging = NeverLose:CreateLogger();
-	pcall(function()
+	local CfgFolderOk, CfgFolderErr = pcall(function()
 		if not isfolder(Window.ConfigFolder) then
 			makefolder(Window.ConfigFolder);
 		end;
 	end);
+	if not CfgFolderOk then
+		warn(`[Neverlose] makefolder failed for '{Window.ConfigFolder}': {CfgFolderErr}`);
+	end;
 
 	local WindowFrame = Instance.new("Frame")
 	local UICorner = Instance.new("UICorner")
@@ -5443,11 +5449,14 @@ function NeverLose:CreateWindow(Config)
 		end;
 
 		function ConfigLib:RefreshConfig()
-			pcall(function()
+			local RfsFolderOk, RfsFolderErr = pcall(function()
 				if not isfolder(Window.ConfigFolder) then
 					makefolder(Window.ConfigFolder);
 				end;
 			end);
+			if not RfsFolderOk then
+				warn(`[Neverlose] makefolder failed for '{Window.ConfigFolder}': {RfsFolderErr}`);
+			end;
 			
 			if not isfile(Window.ConfigFolder..'/Default') then
 				writefile(Window.ConfigFolder..'/Default',ConfigLib:GetData());
