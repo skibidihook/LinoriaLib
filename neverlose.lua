@@ -251,9 +251,11 @@ do
 
 	if getcustomasset then
 		local Dir = 'NLAssets';
-		if not isfolder(Dir) then
-			makefolder(Dir);
-		end;
+		pcall(function()
+			if not isfolder(Dir) then
+				makefolder(Dir);
+			end;
+		end);
 
 		local Write = function(FileName, B64)
 			local Path = `{Dir}/{FileName}`;
@@ -3860,9 +3862,11 @@ function NeverLose:CreateWindow(Config)
 	NeverLose.GlobalLogo = Window.Logo;
 
 	local Logging = NeverLose:CreateLogger();
-	if not isfolder(Window.ConfigFolder) then
-		makefolder(Window.ConfigFolder);
-	end;
+	pcall(function()
+		if not isfolder(Window.ConfigFolder) then
+			makefolder(Window.ConfigFolder);
+		end;
+	end);
 
 	local WindowFrame = Instance.new("Frame")
 	local UICorner = Instance.new("UICorner")
@@ -5439,9 +5443,11 @@ function NeverLose:CreateWindow(Config)
 		end;
 
 		function ConfigLib:RefreshConfig()
-			if not isfolder(Window.ConfigFolder) then
-				makefolder(Window.ConfigFolder);
-			end;
+			pcall(function()
+				if not isfolder(Window.ConfigFolder) then
+					makefolder(Window.ConfigFolder);
+				end;
+			end);
 			
 			if not isfile(Window.ConfigFolder..'/Default') then
 				writefile(Window.ConfigFolder..'/Default',ConfigLib:GetData());
