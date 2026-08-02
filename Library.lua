@@ -1608,6 +1608,17 @@ do
             Library:AttemptSave()
         end)
 
+        local function SyncMaxSize()
+            local Width = SliderInner.AbsoluteSize.X
+            if Width > 0 and Width ~= Slider.MaxSize then
+                Slider.MaxSize = Width
+                Slider:Display()
+            end
+        end
+
+        SliderInner:GetPropertyChangedSignal('AbsoluteSize'):Connect(SyncMaxSize)
+        SyncMaxSize()
+
         Slider:Display()
         self:AddBlank(Info.BlankSize or 6)
         self:Resize()
